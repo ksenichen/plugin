@@ -18,7 +18,7 @@ function myplugin_add_meta_box() {
 
 		add_meta_box(
 			'myplugin_sectionid',
-			__( 'My Post Section Title', 'myplugin_textdomain' ),
+			__( 'Product meta', 'myplugin_textdomain' ),
 			'myplugin_meta_box_callback',
 			$screen,
 			'side'
@@ -35,18 +35,61 @@ add_action( 'add_meta_boxes', 'myplugin_add_meta_box' );
 function myplugin_meta_box_callback( $post ) {
 
 	// Add a nonce field so we can check for it later.
-	wp_nonce_field( 'myplugin_save_meta_box_data', 'myplugin_meta_box_nonce' );
+	/*wp_nonce_field( 'myplugin_save_meta_box_data', 'myplugin_meta_box_nonce' );
 
 	/*
 	 * Use get_post_meta() to retrieve an existing value
 	 * from the database and use the value for the form.
-	 */
+	 
 	$value = get_post_meta( $post->ID, '_my_meta_value_key', true );
 
 	echo '<label for="myplugin_new_field">';
 	_e( 'Description for this field', 'myplugin_textdomain' );
 	echo '</label> ';
 	echo '<input type="text" id="myplugin_new_field" name="myplugin_new_field" value="' . esc_attr( $value ) . '" size="25" />';
+
+	$custom         = get_post_custom($post->ID);
+    $download_id    = get_post_meta($post->ID, 'document_file_id', true);
+ 
+    echo '<p><label for="document_file">Загрузить файл:</label><br />';
+    echo '<input type="file" name="document_file" id="document_file" /></p>';
+    echo '</p>';
+ 
+    if(!empty($download_id) && $download_id != '0') {
+        echo '<p><a href="' . wp_get_attachment_url($download_id) . '">
+            Просмотр файла</a></p>';
+        }*/
+
+        $data = get_post_meta($post->ID, '_name', true);
+        		
+		echo   '<!--Указывается схема Product.-->
+		<div itemscope itemtype="http://schema.org/Product">
+
+		<!--В поле name указывается наименование товара.-->
+		  <label>Name</label>
+		  <span  itemprop="name"><input type="text" name="name" size="30" value="' . esc_attr($data) . '"/></span>
+
+		<!--В поле description дается описание товара.-->
+		  <label>Description</label>
+		  <span itemprop="description"><textarea name="description" rows="10" cols="30"/></textarea></span>
+
+		<!--В поле image указывается ссылка на картинку товара.-->
+		  <label>Image</label>
+		  <img name="img"src="http://imageexample.com/iphone6plus.jpg" itemprop="image">
+
+		<!--Указывается схема Offer.-->
+		  <div itemprop="offers" itemscope itemtype="http://schema.org/Offer"> 
+
+		<!--В поле price указывается цена товара.-->
+		    <label>Price</label>
+		    <span itemprop="price"><input type="text" name="price" size="30"/></span>
+
+		<!--В поле priceCurrency указывается валюта.-->
+		    <label>Currency</label>
+		    <span itemprop="priceCurrency"><input type="text" name="currency" size="30"/></span>
+		  </div>
+		</div>';
+
 }
 
 /**
@@ -56,52 +99,21 @@ function myplugin_meta_box_callback( $post ) {
  */
 function myplugin_save_meta_box_data( $post_id ) {
 
-	/*
-	 * We need to verify this came from our screen and with proper authorization,
-	 * because the save_post action can be triggered at other times.
-	 */
+	if (!isset($_POST['name']) || !isset($_POST['description']) || !isset($_POST['price']) || !isset($_POST['currency'])) 
+		return; 
 
-	// Check if our nonce is set.
-	if ( ! isset( $_POST['myplugin_meta_box_nonce'] ) ) {
-		return;
-	}
+	//не происходит ли автосохранение? 
+	if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) 
+		return; 
 
-	// Verify that the nonce is valid.
-	if ( ! wp_verify_nonce( $_POST['myplugin_meta_box_nonce'], 'myplugin_save_meta_box_data' ) ) {
-		return;
-	}
+	// не ревизию ли сохраняем? 
+	if (wp_is_post_revision($postID)) 
+		return; 
 
-	// If this is an autosave, our form has not been submitted, so we don't want to do anything.
-	if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-		return;
-	}
+	$product_name = sanitize_text_field($_POST['name']);
+	update_post_meta($post_id, '_name', $product_name);
 
-	// Check the user's permissions.
-	if ( isset( $_POST['post_type'] ) && 'page' == $_POST['post_type'] ) {
 
-		if ( ! current_user_can( 'edit_page', $post_id ) ) {
-			return;
-		}
-
-	} else {
-
-		if ( ! current_user_can( 'edit_post', $post_id ) ) {
-			return;
-		}
-	}
-
-	/* OK, it's safe for us to save the data now. */
-	
-	// Make sure that it is set.
-	if ( ! isset( $_POST['myplugin_new_field'] ) ) {
-		return;
-	}
-
-	// Sanitize user input.
-	$my_data = sanitize_text_field( $_POST['myplugin_new_field'] );
-
-	// Update the meta field in the database.
-	update_post_meta( $post_id, '_my_meta_value_key', $my_data );
 }
 add_action( 'save_post', 'myplugin_save_meta_box_data' );
 ?>
