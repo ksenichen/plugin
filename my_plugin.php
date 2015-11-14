@@ -35,7 +35,7 @@ add_action( 'add_meta_boxes', 'myplugin_add_meta_box' );
 function myplugin_meta_box_callback( $post ) {
 
 	// Add a nonce field so we can check for it later.
-	/*wp_nonce_field( 'myplugin_save_meta_box_data', 'myplugin_meta_box_nonce' );
+	/*
 
 	/*
 	 * Use get_post_meta() to retrieve an existing value
@@ -60,37 +60,53 @@ function myplugin_meta_box_callback( $post ) {
             Просмотр файла</a></p>';
         }*/
 
-        $data = get_post_meta($post->ID, '_name', true);
+        $product_name = get_post_meta($post->ID, '_name', true);
+        $product_description = get_post_meta($post->ID, '_description', true);
+        $product_price = get_post_meta($post->ID, '_price', true);
+        $product_currency = get_post_meta($post->ID, '_currency', true);
+        wp_nonce_field( 'myplugin_save_meta_box_data', 'myplugin_meta_box_nonce' );
+        $image = get_post_meta($post->ID, "_my_image_upload", true);
+       
         		
 		echo   '<!--Указывается схема Product.-->
 		<div itemscope itemtype="http://schema.org/Product">
 
 		<!--В поле name указывается наименование товара.-->
 		  <label>Name</label>
-		  <span  itemprop="name"><input type="text" name="name" size="30" value="' . esc_attr($data) . '"/></span>
+		  <span  itemprop="name"><input type="text" name="name" size="30" value="' . esc_attr($product_name) . '"/></span>
 
 		<!--В поле description дается описание товара.-->
 		  <label>Description</label>
-		  <span itemprop="description"><textarea name="description" rows="10" cols="30"/></textarea></span>
+		  <span itemprop="description"><textarea name="description" rows="10" cols="30">' . esc_textarea($product_description) . '</textarea></span>
 
 		<!--В поле image указывается ссылка на картинку товара.-->
 		  <label>Image</label>
-		  <img name="img"src="http://imageexample.com/iphone6plus.jpg" itemprop="image">
+		  <input id="image-url" type="text" name="image" value="' . $image . '"/>
+  		  <input id="upload-button" type="button" class="button" value="Upload Image" />
 
 		<!--Указывается схема Offer.-->
 		  <div itemprop="offers" itemscope itemtype="http://schema.org/Offer"> 
 
 		<!--В поле price указывается цена товара.-->
 		    <label>Price</label>
-		    <span itemprop="price"><input type="text" name="price" size="30"/></span>
+		    <span itemprop="price"><input type="text" name="price" size="30" value="' . esc_attr($product_price) . '"/></span>
 
 		<!--В поле priceCurrency указывается валюта.-->
 		    <label>Currency</label>
-		    <span itemprop="priceCurrency"><input type="text" name="currency" size="30"/></span>
+		    <span itemprop="priceCurrency"><input type="text" name="currency" size="30" value="' . esc_attr($product_currency) . '"/></span>
 		  </div>
 		</div>';
 
 }
+
+/* Add the media uploader script */
+function my_media_lib_uploader_enqueue() {
+    wp_enqueue_media();
+    wp_register_script( 'media-lib-uploader-js', plugins_url( 'media-lib-uploader.js' , __FILE__ ), array('jquery') );
+    wp_enqueue_script( 'media-lib-uploader-js' );
+}
+add_action('admin_enqueue_scripts', 'my_media_lib_uploader_enqueue');
+
 
 /**
  * When the post is saved, saves our custom data.
@@ -98,6 +114,8 @@ function myplugin_meta_box_callback( $post ) {
  * @param int $post_id The ID of the post being saved.
  */
 function myplugin_save_meta_box_data( $post_id ) {
+
+	global $wpdb;
 
 	if (!isset($_POST['name']) || !isset($_POST['description']) || !isset($_POST['price']) || !isset($_POST['currency'])) 
 		return; 
@@ -110,10 +128,29 @@ function myplugin_save_meta_box_data( $post_id ) {
 	if (wp_is_post_revision($postID)) 
 		return; 
 
+	check_admin_referer('myplugin_save_meta_box_data', 'myplugin_meta_box_nonce');
+
+	require_once( ABSPATH . 'wp-admin/includes/image.php' );
+	require_once( ABSPATH . 'wp-admin/includes/file.php' );
+	require_once( ABSPATH . 'wp-admin/includes/media.php' );
+
 	$product_name = sanitize_text_field($_POST['name']);
 	update_post_meta($post_id, '_name', $product_name);
 
+	$product_description = sanitize_text_field($_POST['description']);
+	update_post_meta($post_id, '_description', $product_description);
+  
+	if ( !empty( $_POST['image'] ) ) {
+	  $image_url = $_POST['image'];
+	  $wpdb->insert( 'images', array( 'image_url' => $image_url ), array( '%s' ) ); 
+	}
+	update_post_meta($post_id, "_my_image_upload", $image_url);
 
+	$product_price = sanitize_text_field($_POST['price']);
+	update_post_meta($post_id, '_price', $product_price);
+
+	$product_currency = sanitize_text_field($_POST['currency']);
+	update_post_meta($post_id, '_currency', $product_currency);
 }
 add_action( 'save_post', 'myplugin_save_meta_box_data' );
 ?>
